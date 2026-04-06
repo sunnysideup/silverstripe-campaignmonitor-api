@@ -29,7 +29,7 @@
     }
   ],
   "suggest": {
-   "campaignmonitor/campaignmonitor": "The campaign monitor kitchen sink"
+    "campaignmonitor/campaignmonitor": "The campaign monitor kitchen sink"
   },
   "autoload": {
     "psr-4": {
