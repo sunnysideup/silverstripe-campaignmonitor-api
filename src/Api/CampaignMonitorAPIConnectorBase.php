@@ -104,7 +104,7 @@ class CampaignMonitorAPIConnectorBase
         $class = Injector::inst()->get(static::class);
         $auth = $class->getAuth();
 
-        return false === empty($auth) ? true : false;
+        return false === empty($auth);
     }
 
     /**
@@ -160,15 +160,16 @@ class CampaignMonitorAPIConnectorBase
         if (!empty($auth)) {
             return $auth;
         }
+
         $auth = [];
         $apiKey = $this->getApiKey();
-        if ($apiKey) {
+        if ($apiKey !== '' && $apiKey !== '0') {
             $auth = ['api_key' => $apiKey];
         } else {
             $clientId = $this->getClientId();
-            $clientSecret = $clientId ? $this->getClientSecret() : '';
-            $code = $clientSecret ? $this->getCode() : '';
-            $redirectUri = $clientSecret ? $this->getRedirectUri() : '';
+            $clientSecret = $clientId !== '' && $clientId !== '0' ? $this->getClientSecret() : '';
+            $code = $clientSecret !== '' && $clientSecret !== '0' ? $this->getCode() : '';
+            $redirectUri = $clientSecret !== '' && $clientSecret !== '0' ? $this->getRedirectUri() : '';
             if ($clientId && $clientSecret && $redirectUri && $code) {
                 $result = CS_REST_General::exchange_token($clientId, $clientSecret, $redirectUri, $code);
 
@@ -185,27 +186,26 @@ class CampaignMonitorAPIConnectorBase
                         echo 'expires in (seconds): ' . $result->response->expires_in . "\n";
                         echo 'refresh token: ' . $result->response->refresh_token . "\n";
                     }
-                } else {
+                } elseif ($result->response && 121 === $result->response->Code) {
                     // If you receive '121: Expired OAuth Token', refresh the access token
-                    if ($result->response && 121 === $result->response->Code) {
-                        $url = CS_REST_General::authorize_url($clientId, $clientSecret, $redirectUri, $code);
-
-                        return Controller::curr()->redirect($url);
-                        // $wrap =
-                        // list($new_access_token, , $new_refresh_token) = $wrap->refresh_token();
-                        //
-                        // $auth = [
-                        //     'access_token' => $new_access_token,
-                        //     'refresh_token' => $new_refresh_token,
-                        // ];
-                    }
+                    $url = CS_REST_General::authorize_url($clientId, $clientSecret, $redirectUri, $code);
+                    return Controller::curr()->redirect($url);
+                    // $wrap =
+                    // list($new_access_token, , $new_refresh_token) = $wrap->refresh_token();
+                    //
+                    // $auth = [
+                    //     'access_token' => $new_access_token,
+                    //     'refresh_token' => $new_refresh_token,
+                    // ];
                 }
             }
-            if (!empty($auth)) {
+
+            if ($auth !== []) {
                 $this->saveToCache($auth, 'getAuth');
             }
         }
-        if (empty($auth)) {
+
+        if ($auth === []) {
             $auth = [];
         }
 
@@ -226,15 +226,16 @@ class CampaignMonitorAPIConnectorBase
     {
         if ($this->debug) {
             if (is_string($result)) {
-                echo "<h1>{$description} ( {$apiCall} ) ...</h1>";
-                echo "<p style='color: red'>{$result}</p>";
+                echo sprintf('<h1>%s ( %s ) ...</h1>', $description, $apiCall);
+                echo sprintf("<p style='color: red'>%s</p>", $result);
             } else {
-                echo "<h1>{$description} ( {$apiCall} ) ...</h1>";
+                echo sprintf('<h1>%s ( %s ) ...</h1>', $description, $apiCall);
                 if ($result->was_successful()) {
                     echo '<h2>SUCCESS</h2>';
                 } else {
                     echo '<h2>FAILURE: ' . $result->http_status_code . '</h2>';
                 }
+
                 echo '<pre>';
                 print_r($result);
                 echo '</pre>';
@@ -243,6 +244,7 @@ class CampaignMonitorAPIConnectorBase
                 flush();
             }
         }
+
         if (is_string($result)) {
             $this->httpStatusCode = 500;
             self::$error_description = $result;
@@ -250,6 +252,7 @@ class CampaignMonitorAPIConnectorBase
 
             return null;
         }
+
         if ($result->was_successful()) {
             if (!empty($result->response)) {
                 return $result->response;
@@ -257,6 +260,7 @@ class CampaignMonitorAPIConnectorBase
 
             return true;
         }
+
         $this->httpStatusCode = $result->http_status_code;
         self::$error_description = serialize($result) . ' --- --- ' . serialize($apiCall) . ' --- --- ' . serialize($description);
         self::$error_code = $result->http_status_code;
@@ -334,7 +338,8 @@ class CampaignMonitorAPIConnectorBase
         if (!$var) {
             $var = $this->Config()->get($configVar);
         }
-        $var = trim($var);
+
+        $var = trim((string) $var);
         if (!$var && false === $allowToBeEmpty) {
             user_error('Please set .env var ' . $envVar . ' (recommended) or config var ' . $configVar, E_USER_NOTICE);
         }
@@ -350,6 +355,7 @@ class CampaignMonitorAPIConnectorBase
         if (!is_array($customFields)) {
             $customFields = [];
         }
+
         $customFieldsBetter = [];
         foreach ($customFields as $key => $value) {
             if (isset($customFields[$key]['Key'], $customFields[$key]['Value'])) {
